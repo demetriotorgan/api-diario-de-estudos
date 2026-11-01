@@ -26,7 +26,7 @@ const RegistroExecucaoSchema = new Schema<RegistroExecucao>({
     duracaoMinutos: {
         type: Number,
         required: true,
-        min: 0
+        min:0          
     },
     statusExecucao: {
         type: String,

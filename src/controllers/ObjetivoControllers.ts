@@ -111,3 +111,29 @@ export const listarObjetivosPorPrioridade = async (req: Request, res: Response):
         })
     }
 };
+
+export const excluirObjetivo = async(req:Request, res:Response):Promise<void>=>{
+    //1. Extrair objetivoId de req.params
+    const {prioridadeId} = req.params;      
+
+    //2. Validar formato do objetivoId
+       
+
+    //3. Consultar ObjetivoModel.findById(objetivoId)
+       
+    //4. Consultar RegistroExecucaoModel.exists({objetivoId})
+
+    //    SE existir algum registro:
+    //        RETORNAR HTTP 409
+    //        Mensagem: "Objetivo possui registros de execução
+    //                   associados e não pode ser excluído"
+
+    //5. Excluir o objetivo
+
+    //6. RETORNAR HTTP 200
+    //    success: true
+    //    message: "Objetivo excluído com sucesso"
+
+    // SE ocorrer erro inesperado:
+    //    RETORNAR HTTP 500
+}
