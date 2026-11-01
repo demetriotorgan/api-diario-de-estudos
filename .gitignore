@@ -1,0 +1,19 @@
+# deps
+node_modules/
+
+# env - NUNCA sobe isso
+.env
+.env.local
+.env.*.local
+
+# build
+dist/
+build/
+.next/
+out/
+
+# logs e OS
+npm-debug.log*
+.DS_Store
+.vscode/
+coverage/
