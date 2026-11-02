@@ -4,7 +4,8 @@ import { ObjetivoModel } from "../models/Objetivo.js";
 import { validarObjetoId } from "../services/validarObjectId.js";
 import { buscarPrioridadeId } from "../services/prioridadeService.js";
 import { validarDataRegistro } from "../services/validarDataRegistro.js";
-import { buscarObjetivoId } from "../services/objetivoService.js";
+import { buscarObjetivoId, buscarObjetivoIdOnly } from "../services/objetivoService.js";
+import { RegistroExecucaoModel } from "../models/RegistroExecucao.js";
 
 
 export const RegistroExecucaoControllers = async (req: Request, res: Response): Promise<void> => {
@@ -149,17 +150,41 @@ export const RegistroExecucaoControllers = async (req: Request, res: Response): 
 
         //impedir registros em objetivos concluidos
         console.log(objetivo);
-        if(objetivo.status === 'CONCLUIDO'){
+        if (objetivo.status === 'CONCLUIDO') {
             res.status(409).json({
-                success:false,
-                message:'Não é permitido registrar uma atividade com registro concluido'
+                success: false,
+                message: 'Não é permitido registrar uma atividade com registro concluido'
             })
+            return;
         };
 
+        const novo_registroExecucao = await RegistroExecucaoModel.create({
+            prioridadeId,
+            objetivoId,
+            data,
+            atividade,
+            duracaoMinutos,
+            statusExecucao,
+            esforco,
+            observacao
+        });
 
-        res.status(200).json({
+        console.log('Registro salvo:', novo_registroExecucao);
+
+        if (novo_registroExecucao) {
+            if (objetivo.status === 'NAO_INICIADO') {
+                await ObjetivoModel.findByIdAndUpdate(objetivoId,
+                    { $set: { status: 'EM_ANDAMENTO' } }
+                );
+            }
+
+            console.log('Status atualizado');
+        }
+
+        res.status(201).json({
             success: true,
-            message: 'Dados validos'
+            message: 'Registro de execucação salvo com sucesso',
+            registro_execucao: novo_registroExecucao
         })
 
     } catch (error) {
@@ -167,6 +192,93 @@ export const RegistroExecucaoControllers = async (req: Request, res: Response): 
         res.status(500).json({
             success: false,
             message: 'Erro ao salvar novo registro de execução'
+        })
+    }
+};
+
+
+export const concluirObjetivo = async (req: Request, res: Response): Promise<void> => {
+    try {
+        //1.Receber objetivoId
+        const { objetivoId } = req.params;
+        //console.log('ObjetivoId recebido:', objetivoId);
+
+        //2. Validar id
+        if (!objetivoId) {
+            res.status(400).json({
+                success: false,
+                message: 'Objetivo Id não enviado'
+            })
+            return;
+        };
+
+        if (!validarObjetoId(objetivoId)) {
+            res.status(400).json({
+                success: false,
+                message: 'Objetivo ID não é valido'
+            })
+            return;
+        };
+
+        const objetivo = await buscarObjetivoIdOnly(objetivoId);
+        //console.log('Objetivo encontrado:', objetivo);
+        if (objetivo === null) {
+            res.status(404).json({
+                success: false,
+                message: 'Objetivo não encontrado'
+            })
+            return;
+        };
+        //Se objetivo ja concluido 409
+        if (objetivo.status === 'CONCLUIDO') {
+            res.status(409).json({
+                success: false,
+                message: 'Objetivo já está concluido'
+            })
+            return;
+        };
+
+        if (objetivo.status === 'NAO_INICIADO') {
+            res.status(409).json({
+                success: false,
+                message: 'Objetivo ainda não iniciado'
+            });
+            return;
+        }
+
+        //salvando 
+        const objetivo_concluido = await ObjetivoModel.findByIdAndUpdate(
+            {
+                _id: objetivoId,
+                status: 'EM_ANDAMENTO'
+            },
+            {
+                $set: { status: 'CONCLUIDO' }
+            },
+            {
+                new: true,
+                runValidators: true
+            }
+        )
+        if (!objetivo_concluido) {
+            res.status(404).json({
+                success: false,
+                message: 'Objetivo não encontrado'
+            })
+            return;
+        };
+
+        res.status(200).json({
+            success: true,
+            message: 'Objetivo concluido com sucesso',
+            objetivo: objetivo_concluido
+        })
+
+    } catch (error) {
+        console.error('Erro ao concluir objetivo: ', error);
+        res.status(500).json({
+            success: false,
+            erro: 'Erro ao concluir objetivo'
         })
     }
 }

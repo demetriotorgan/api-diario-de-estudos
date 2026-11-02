@@ -68,8 +68,8 @@ RegistroExecucaoSchema.pre('validate', function () {
 
     const scoreEsperado = scores[this.statusExecucao];
 
-    if(scoreEsperado !== undefined && this.score !== scoreEsperado){
-        this.invalidate('score', `O score deve ser ${scoreEsperado} para o status ${this.statusExecucao}`);
+    if(scoreEsperado !== undefined){
+     this.score = scoreEsperado;   
     }
 });
 

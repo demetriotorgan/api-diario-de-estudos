@@ -6,3 +6,10 @@ export const buscarObjetivoId = async(objetivoId:string, prioridadeId:string)=>{
         prioridadeId: prioridadeId
     })
 }
+
+export const buscarObjetivoIdOnly = async(objetivoId:string)=>{
+    return await ObjetivoModel.findOne({
+        _id:objetivoId
+    })
+    
+}
