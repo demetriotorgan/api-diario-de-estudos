@@ -1,12 +1,13 @@
 import { Router } from 'express'
-import { criarObjetivo, listarObjetivosPorPrioridade } from '../controllers/ObjetivoControllers.js';
-import { concluirObjetivo } from '../controllers/RegistroExecucaoControllers.js';
+import { concluirObjetivo, criarObjetivo, excluirObjetivo, listarObjetivosPorPrioridade } from '../controllers/ObjetivoControllers.js';
+
 
 const router = Router();
 
 router.post('/salvar', criarObjetivo);
 router.get('/:prioridadeId/listar', listarObjetivosPorPrioridade);
 router.patch('/:objetivoId/concluir',concluirObjetivo);
+router.delete('/:objetivoId/deletar', excluirObjetivo);
 
 export default router;
 

@@ -4,7 +4,7 @@ import { ObjetivoModel } from "../models/Objetivo.js";
 import { validarObjetoId } from "../services/validarObjectId.js";
 import { buscarPrioridadeId } from "../services/prioridadeService.js";
 import { validarDataRegistro } from "../services/validarDataRegistro.js";
-import { buscarObjetivoId, buscarObjetivoIdOnly } from "../services/objetivoService.js";
+import { buscarObjetivoId } from "../services/objetivoService.js";
 import { RegistroExecucaoModel } from "../models/RegistroExecucao.js";
 import mongoose from "mongoose";
 
@@ -15,7 +15,7 @@ class ObjetivoNaoDisponivelError extends Error {
     }
 };
 
-export const RegistroExecucaoControllers = async (req: Request, res: Response): Promise<void> => {
+export const registroExecucaoControllers = async (req: Request, res: Response): Promise<void> => {
     try {
         //1.Extrair body
         const {
@@ -233,89 +233,64 @@ export const RegistroExecucaoControllers = async (req: Request, res: Response): 
     }
 };
 
-
-export const concluirObjetivo = async (req: Request, res: Response): Promise<void> => {
+export const listarRegistroExecucao = async (req:Request, res:Response): Promise<void> =>{
     try {
-        //1.Receber objetivoId
-        const { objetivoId } = req.params;
-        //console.log('ObjetivoId recebido:', objetivoId);
-
-        //2. Validar id
-        if (!objetivoId) {
-            res.status(400).json({
-                success: false,
-                message: 'Objetivo Id não enviado'
-            })
-            return;
-        };
-
-        if (!validarObjetoId(objetivoId)) {
-            res.status(400).json({
-                success: false,
-                message: 'Objetivo ID não é valido'
-            })
-            return;
-        };
-
-        const objetivo = await buscarObjetivoIdOnly(objetivoId);
-        //console.log('Objetivo encontrado:', objetivo);
-        if (objetivo === null) {
-            res.status(404).json({
-                success: false,
-                message: 'Objetivo não encontrado'
-            })
-            return;
-        };
-        //Se objetivo ja concluido 409
-        if (objetivo.status === 'CONCLUIDO') {
-            res.status(409).json({
-                success: false,
-                message: 'Objetivo já está concluido'
-            })
-            return;
-        };
-
-        if (objetivo.status === 'NAO_INICIADO') {
-            res.status(409).json({
-                success: false,
-                message: 'Objetivo ainda não iniciado'
-            });
-            return;
-        }
-
-        //salvando 
-        const objetivo_concluido = await ObjetivoModel.findOneAndUpdate(
-            {
-                _id: objetivoId,
-                status: 'EM_ANDAMENTO'
-            },
-            {
-                $set: { status: 'CONCLUIDO' }
-            },
-            {
-                returnDocument: 'after',
-                runValidators: true
-            }
-        )
-        if (!objetivo_concluido) {
-            res.status(404).json({
-                success: false,
-                message: 'Objetivo não encontrado'
-            })
-            return;
-        };
-
-        res.status(200).json({
-            success: true,
-            message: 'Objetivo concluido com sucesso',
-            objetivo: objetivo_concluido
-        })
-
+        const registros_execucoes = await RegistroExecucaoModel.find().sort({createdAt:-1});
+        res.status(200).json(registros_execucoes);
     } catch (error) {
-        console.error('Erro ao concluir objetivo: ', error);
+        console.error('Erro ao listar prioridades');
         res.status(500).json({
-            success: false,
-            erro: 'Erro ao concluir objetivo'
+            erro:'Erro ao listar registros de execução',
+            message:error
+        })
+    };
+}
+
+export const deletarRegistroExecucao = async (req:Request, res:Response): Promise<void> =>{
+    try {
+        //1. Extrair exeucacaoId
+    const {execucaoId} = req.params;
+
+    //2.Validando
+    if(!execucaoId || typeof execucaoId !== 'string'){
+        res.status(400).json({
+            success:false,
+            message:'Registro execução id inválido'
+        })
+        return;
+    };
+
+    //3.Validando objeto execucaoId
+    const idValido = validarObjetoId(execucaoId);
+    if(!idValido){
+        res.status(400).json({
+            success:false,
+            message:'Registro de execução id inválido'
+        })
+        return;
+    };
+
+    //4. Excluir registro
+    const registro_excluido = await RegistroExecucaoModel.findByIdAndDelete({_id:execucaoId});
+    if(!registro_excluido){
+        res.status(404).json({
+            success:false,
+            message: 'Registro de exeucação não encontrado no momento da exclusão '
+        })
+        return;
+    }
+
+    //5. Retonar HTTP
+    res.status(200).json({
+        success:true,
+        message:'Registro execluido com sucesso',
+        registro_execucao:registro_excluido
+    })
+    } catch (error) {
+        console.log('Erro ao excluir registro de execução');
+        res.status(500).json({
+            success:false,
+            message:'Erro ao excluir registro'
         })
     }
-}
+};
