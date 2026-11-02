@@ -6,7 +6,14 @@ import { buscarPrioridadeId } from "../services/prioridadeService.js";
 import { validarDataRegistro } from "../services/validarDataRegistro.js";
 import { buscarObjetivoId, buscarObjetivoIdOnly } from "../services/objetivoService.js";
 import { RegistroExecucaoModel } from "../models/RegistroExecucao.js";
+import mongoose from "mongoose";
 
+class ObjetivoNaoDisponivelError extends Error {
+    constructor() {
+        super('O objetivo não está disponivel para novos registros');
+        this.name = 'ObjetivoNaoDisponivelError';
+    }
+};
 
 export const RegistroExecucaoControllers = async (req: Request, res: Response): Promise<void> => {
     try {
@@ -158,28 +165,51 @@ export const RegistroExecucaoControllers = async (req: Request, res: Response): 
             return;
         };
 
-        const novo_registroExecucao = await RegistroExecucaoModel.create({
-            prioridadeId,
-            objetivoId,
-            data,
-            atividade,
-            duracaoMinutos,
-            statusExecucao,
-            esforco,
-            observacao
-        });
 
-        console.log('Registro salvo:', novo_registroExecucao);
-
-        if (novo_registroExecucao) {
-            if (objetivo.status === 'NAO_INICIADO') {
-                await ObjetivoModel.findByIdAndUpdate(objetivoId,
-                    { $set: { status: 'EM_ANDAMENTO' } }
+        //Transaction - Salvando registro de execução
+        const novo_registroExecucao = await mongoose.connection.transaction(
+            async (session) => {
+                //1. Atualizar condicionalmente o objetivo:
+                const objetivoAtualizado = await ObjetivoModel.findOneAndUpdate(
+                    {
+                        _id: objetivoId,
+                        prioridadeId,
+                        status: {
+                            $in: ['NAO_INICIADO', 'EM_ANDAMENTO']
+                        }
+                    },
+                    {
+                        $set: {
+                            status: 'EM_ANDAMENTO'
+                        }
+                    },
+                    {
+                        session,
+                        returnDocument: 'after',
+                        runValidators: true
+                    }
                 );
-            }
 
-            console.log('Status atualizado');
-        }
+                //2. Não permitir registro se o objetivo não estiver elegivel
+                if (!objetivoAtualizado) {
+                    throw new ObjetivoNaoDisponivelError();
+                }              
+
+                //3. Criar o registro dentro da mesma transação
+                const registro = new RegistroExecucaoModel({
+                    prioridadeId,
+                    objetivoId,
+                    data,
+                    atividade,
+                    duracaoMinutos,
+                    statusExecucao,
+                    esforco,
+                    observacao
+                });
+                await registro.save({ session })
+                return registro;
+            }
+        );
 
         res.status(201).json({
             success: true,
@@ -188,6 +218,13 @@ export const RegistroExecucaoControllers = async (req: Request, res: Response): 
         })
 
     } catch (error) {
+        if (error instanceof ObjetivoNaoDisponivelError) {
+            res.status(409).json({
+                success: false,
+                message: error.message
+            });
+            return;
+        }
         console.log('Erro ao salvar novo registro de execução', error);
         res.status(500).json({
             success: false,
@@ -247,7 +284,7 @@ export const concluirObjetivo = async (req: Request, res: Response): Promise<voi
         }
 
         //salvando 
-        const objetivo_concluido = await ObjetivoModel.findByIdAndUpdate(
+        const objetivo_concluido = await ObjetivoModel.findOneAndUpdate(
             {
                 _id: objetivoId,
                 status: 'EM_ANDAMENTO'
@@ -256,7 +293,7 @@ export const concluirObjetivo = async (req: Request, res: Response): Promise<voi
                 $set: { status: 'CONCLUIDO' }
             },
             {
-                new: true,
+                returnDocument: 'after',
                 runValidators: true
             }
         )
