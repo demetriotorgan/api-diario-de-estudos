@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import {PrioridadeModel} from '../models/Prioridade.js'
+import { ObjetivoModel } from '../models/Objetivo.js';
 
 export const criarPrioridade = async(req: Request,res: Response): Promise<void>=>{
     try {
@@ -49,3 +50,28 @@ export const desativarPrioridade = async(req:Request, res:Response): Promise<voi
     }
 };
 
+export const listarPrioridadesComObjetivos = async(req:Request, res:Response): Promise<void> =>{
+    try {
+        //1.Buscar todas as prioridades
+        const prioridades = await PrioridadeModel.find().sort({createdAt:-1}).lean();
+
+        //2.Buscar todos os objetivos
+        const objetivos = await ObjetivoModel.find().sort({createdAt:-1}).lean();
+
+        //3. Associar objetivos a prioridades
+        const resultado = prioridades.map(prioridade =>({
+            ...prioridade, 
+            objetivos: objetivos.filter(objetivo => objetivo.prioridadeId.toString() === prioridade._id.toString())
+        }));
+
+        //4. Retornar resultado
+        res.status(200).json(resultado)
+
+    } catch (error) {
+        console.error('Erro ao listar prioridades com objetivos', error);
+        res.status(500).json({
+            success:false,
+            message: 'Erro ao listar prioridades com objetivos'
+        })
+    }
+};

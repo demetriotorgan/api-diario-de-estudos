@@ -7,4 +7,5 @@ router.post('/:prioridadeId/salvar', registroExecucaoControllers);
 router.get('/listar', listarRegistroExecucao);
 router.delete('/:execucaoId/deletar', deletarRegistroExecucao);
 
+
 export default router;
